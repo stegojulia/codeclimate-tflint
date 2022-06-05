@@ -1,0 +1,13 @@
+{
+  "name": "TFLint",
+  "description": "A pluggable Terraform linter that allows to find possible errors (like illegal instance types) for Major Cloud providers (AWS/Azure/GCP), warn about deprecated syntax/unused declarations and to enforce best practices/naming conventions",
+  "maintainer": {
+    "name": "Stefano Tenuta",
+    "email": "stapps@outlook.it"
+  },
+  "languages": [
+    "HCL"
+  ],
+  "version": "v0.0.1",
+  "spec_version": "0.0.1"
+}
