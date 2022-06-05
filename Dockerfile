@@ -6,13 +6,13 @@ WORKDIR /usr/src/app
 COPY go.mod ./
 COPY go.sum ./
 RUN go mod download
-COPY *.go ./
+COPY . ./
 RUN go build
 
 FROM ghcr.io/terraform-linters/tflint
 
 RUN adduser -u 9000 -D app
-COPY --from=builder /usr/src/app/tflint /usr/src/app/tflint
+COPY --from=builder /usr/src/app/codeclimate-tflint /usr/src/app/codeclimate-tflint
 RUN chown -R app:app /usr/src/app
 
 USER app
@@ -21,4 +21,4 @@ VOLUME /code
 WORKDIR /code
 
 ENTRYPOINT [""]
-CMD ["/usr/src/app/tflint"]
+CMD ["/usr/src/app/codeclimate-tflint"]
