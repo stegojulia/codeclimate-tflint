@@ -88,6 +88,16 @@ func toCodeClimateSeverity(tfSeverity string) string {
 	}
 }
 
+func toCodeClimatePosition(jsonRange *formatter.JSONRange) CodeClimateLocation {
+	return CodeClimateLocation{
+		Path: jsonRange.Filename,
+		Positions: CodeClimatePositions{
+			Begin: CodeClimatePosition{Line: jsonRange.Start.Line, Column: jsonRange.Start.Column},
+			End:   CodeClimatePosition{Line: jsonRange.End.Line, Column: jsonRange.End.Column},
+		},
+	}
+}
+
 func printIssueJson(issue CodeClimateIssue) {
 	out, err := json.Marshal(issue)
 	if err != nil {
@@ -101,30 +111,18 @@ func printIssueJson(issue CodeClimateIssue) {
 func CodeClimatePrint(issues formatter.JSONOutput) {
 	for _, issue := range issues.Issues {
 		ccIssue := CodeClimateIssue{
-			Type:        "issue",
-			CheckName:   issue.Rule.Name,
-			Description: issue.Message,
-			Content:     downloadLinkContent(issue.Rule.Link),
-			Categories:  []string{"Style"},
-			Location: CodeClimateLocation{
-				Path: issue.Range.Filename,
-				Positions: CodeClimatePositions{
-					Begin: CodeClimatePosition{Line: issue.Range.Start.Line, Column: issue.Range.Start.Column},
-					End:   CodeClimatePosition{Line: issue.Range.End.Line, Column: issue.Range.End.Column},
-				},
-			},
+			Type:           "issue",
+			CheckName:      issue.Rule.Name,
+			Description:    issue.Message,
+			Content:        downloadLinkContent(issue.Rule.Link),
+			Categories:     []string{"Style"},
+			Location:       toCodeClimatePosition(&issue.Range),
 			OtherLocations: make([]CodeClimateLocation, len(issue.Callers)),
 			Severity:       toCodeClimateSeverity(issue.Rule.Severity),
 			Fingerprint:    getMD5Hash(issue.Range.Filename + issue.Rule.Name + issue.Message),
 		}
 		for i, caller := range issue.Callers {
-			ccIssue.OtherLocations[i] = CodeClimateLocation{
-				Path: caller.Filename,
-				Positions: CodeClimatePositions{
-					Begin: CodeClimatePosition{Line: caller.Start.Line, Column: caller.Start.Column},
-					End:   CodeClimatePosition{Line: caller.End.Line, Column: caller.End.Column},
-				},
-			}
+			ccIssue.OtherLocations[i] = toCodeClimatePosition(&caller)
 		}
 
 		// Since CodeClimate prefers issues to be streamed we just print it out once we find it
@@ -144,13 +142,7 @@ func CodeClimatePrint(issues formatter.JSONOutput) {
 		} else {
 			ccError.Description = fmt.Sprintf("[%v] %v", issue.Summary, issue.Message)
 			ccError.Fingerprint = getMD5Hash(issue.Range.Filename + issue.Message)
-			ccError.Location = CodeClimateLocation{
-				Path: issue.Range.Filename,
-				Positions: CodeClimatePositions{
-					Begin: CodeClimatePosition{Line: issue.Range.Start.Line, Column: issue.Range.Start.Column},
-					End:   CodeClimatePosition{Line: issue.Range.End.Line, Column: issue.Range.End.Column},
-				},
-			}
+			ccError.Location = toCodeClimatePosition(issue.Range)
 		}
 
 		// Since CodeClimate prefers issues to be streamed we just print it out once we find it
