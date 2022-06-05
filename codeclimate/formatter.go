@@ -132,31 +132,23 @@ func CodeClimatePrint(issues formatter.JSONOutput) {
 	}
 
 	for _, issue := range issues.Errors {
-		var ccError CodeClimateIssue
+		ccError := CodeClimateIssue{
+			Type:       "issue",
+			CheckName:  "tflint_application_error",
+			Categories: []string{"Bug Risk"},
+			Severity:   toCodeClimateSeverity(issue.Severity),
+		}
 		if issue.Severity == string(tflint.ERROR) {
-			ccError = CodeClimateIssue{
-				Type:        "issue",
-				CheckName:   "tflint_application_error",
-				Description: issue.Message,
-				Categories:  []string{"Bug Risk"},
-				Severity:    toCodeClimateSeverity(issue.Severity),
-				Fingerprint: getMD5Hash(issue.Message),
-				Location:    CodeClimateLocation{},
-			}
+			ccError.Description = issue.Message
+			ccError.Fingerprint = getMD5Hash(issue.Message)
 		} else {
-			ccError = CodeClimateIssue{
-				Type:        "issue",
-				CheckName:   "tflint_application_error",
-				Description: fmt.Sprintf("[%v] %v", issue.Summary, issue.Message),
-				Categories:  []string{"Bug Risk"},
-				Severity:    toCodeClimateSeverity(issue.Severity),
-				Fingerprint: getMD5Hash(issue.Range.Filename + issue.Message),
-				Location: CodeClimateLocation{
-					Path: issue.Range.Filename,
-					Positions: CodeClimatePositions{
-						Begin: CodeClimatePosition{Line: issue.Range.Start.Line, Column: issue.Range.Start.Column},
-						End:   CodeClimatePosition{Line: issue.Range.End.Line, Column: issue.Range.End.Column},
-					},
+			ccError.Description = fmt.Sprintf("[%v] %v", issue.Summary, issue.Message)
+			ccError.Fingerprint = getMD5Hash(issue.Range.Filename + issue.Message)
+			ccError.Location = CodeClimateLocation{
+				Path: issue.Range.Filename,
+				Positions: CodeClimatePositions{
+					Begin: CodeClimatePosition{Line: issue.Range.Start.Line, Column: issue.Range.Start.Column},
+					End:   CodeClimatePosition{Line: issue.Range.End.Line, Column: issue.Range.End.Column},
 				},
 			}
 		}
