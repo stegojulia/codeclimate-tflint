@@ -19,7 +19,7 @@ import (
 func getConfiguration() (codeClimateConfiguration *codeclimate.CodeClimateConfiguration, tflintConfiguration *tflint.TFLintRoot) {
 	// Read configuration file
 	log.Println("[main.go/getConfigurationArgs] Reading config.json file...")
-	file, err := os.ReadFile("config.json")
+	file, err := os.ReadFile("/config.json")
 	if err != nil {
 		log.Fatal(err)
 	}
