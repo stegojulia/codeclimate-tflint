@@ -5,13 +5,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
-	"strings"
+	"os"
+	"path"
 
 	"github.com/terraform-linters/tflint/formatter"
-	"github.com/terraform-linters/tflint/tflint"
 )
 
 // CodeClimateIssue is a temporary structure for converting TFLint issues to CodeClimate report format.
@@ -21,7 +19,7 @@ type CodeClimateIssue struct {
 	Type           string                `json:"type"`
 	CheckName      string                `json:"check_name"`
 	Description    string                `json:"description"`
-	Content        string                `json:"content,omitempty"`
+	Content        CodeClimateContent    `json:"content,omitempty"`
 	Categories     []string              `json:"categories"`
 	Location       CodeClimateLocation   `json:"location"`
 	OtherLocations []CodeClimateLocation `json:"other_locations,omitempty"`
@@ -44,28 +42,25 @@ type CodeClimatePosition struct {
 	Column int `json:"column,omitempty"`
 }
 
-// Downloads the provided link and returns it as a string
-func downloadLinkContent(link string) string {
-	resp, err := http.Get(link)
+type CodeClimateContent struct {
+	Body string `json:"body"`
+}
 
-	// We don't care about the error as there's no way to recover from it.
-	// In case of errors we just return an empty string
-	if err != nil || resp.StatusCode != http.StatusOK {
-		return ""
-	}
+// Extracts the rule content from the pre-downloaded rules description on our filesystem (Code Climate doesn't allow network operations)
+func generateIssueContent(link string) string {
+	// Rules are links with this format: https://github.com/terraform-linters/tflint/blob/<TFLINT VERSION>/docs/rules/terraform_typed_variables.md
+	// Our application expects a /tflint-rules folder containing all the files
+	// To convert the path we need to strip everything but the file name
+	localFile := fmt.Sprintf("/tflint-rules/%v", path.Base(link))
 
-	// No errors mean that we can go on and extract the text data
-	defer resp.Body.Close()
-	buf := new(strings.Builder)
-	_, err = io.Copy(buf, resp.Body)
+	log.Printf("[formatter.go/generateIssueContent] Generating content for issue: %v (%v)\n", link, localFile)
 
-	// Again, we don't deal with errors
+	file, err := os.ReadFile(localFile)
 	if err != nil {
-		return ""
+		log.Fatal(err)
 	}
 
-	// If everything went fine we can return the buffered string's contents
-	return buf.String()
+	return string(file)
 }
 
 func getMD5Hash(text string) string {
@@ -104,6 +99,7 @@ func printIssueJson(issue CodeClimateIssue) {
 		log.Fatal(err)
 		fmt.Print(err)
 	}
+
 	// CodeClimate expects issues to be separated by a NULL character (\0)
 	fmt.Printf(string(out) + "\x00")
 }
@@ -114,7 +110,7 @@ func CodeClimatePrint(issues formatter.JSONOutput) {
 			Type:           "issue",
 			CheckName:      issue.Rule.Name,
 			Description:    issue.Message,
-			Content:        downloadLinkContent(issue.Rule.Link),
+			Content:        CodeClimateContent{Body: generateIssueContent(issue.Rule.Link)},
 			Categories:     []string{"Style"},
 			Location:       toCodeClimatePosition(&issue.Range),
 			OtherLocations: make([]CodeClimateLocation, len(issue.Callers)),
@@ -124,6 +120,8 @@ func CodeClimatePrint(issues formatter.JSONOutput) {
 		for i, caller := range issue.Callers {
 			ccIssue.OtherLocations[i] = toCodeClimatePosition(&caller)
 		}
+
+		log.Printf("[formatter.go/CodeClimatePrint] Converting tflint issue\nTF:%+v\nCC:%+v\n", issue, ccIssue)
 
 		// Since CodeClimate prefers issues to be streamed we just print it out once we find it
 		printIssueJson(ccIssue)
@@ -136,7 +134,10 @@ func CodeClimatePrint(issues formatter.JSONOutput) {
 			Categories: []string{"Bug Risk"},
 			Severity:   toCodeClimateSeverity(issue.Severity),
 		}
-		if issue.Severity == string(tflint.ERROR) {
+
+		// Originally this was compared with string(tflint.ERROR), but my knowledge of go is not good enough
+		// to convert an "enum" to a string without filling this file with spaghetti-code.
+		if issue.Severity == "error" {
 			ccError.Description = issue.Message
 			ccError.Fingerprint = getMD5Hash(issue.Message)
 		} else {
@@ -144,6 +145,8 @@ func CodeClimatePrint(issues formatter.JSONOutput) {
 			ccError.Fingerprint = getMD5Hash(issue.Range.Filename + issue.Message)
 			ccError.Location = toCodeClimatePosition(issue.Range)
 		}
+
+		log.Printf("[formatter.go/CodeClimatePrint] Converting tflint application error\nTF:%+v\nCC:%+v\n", issue, ccError)
 
 		// Since CodeClimate prefers issues to be streamed we just print it out once we find it
 		printIssueJson(ccError)
