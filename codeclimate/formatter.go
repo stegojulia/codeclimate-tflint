@@ -129,21 +129,14 @@ func CodeClimatePrint(issues formatter.JSONOutput) {
 
 	for _, issue := range issues.Errors {
 		ccError := CodeClimateIssue{
-			Type:       "issue",
-			CheckName:  "tflint_application_error",
-			Categories: []string{"Bug Risk"},
-			Severity:   toCodeClimateSeverity(issue.Severity),
-		}
-
-		// Originally this was compared with string(tflint.ERROR), but my knowledge of go is not good enough
-		// to convert an "enum" to a string without filling this file with spaghetti-code.
-		if issue.Severity == "error" {
-			ccError.Description = issue.Message
-			ccError.Fingerprint = getMD5Hash(issue.Message)
-		} else {
-			ccError.Description = fmt.Sprintf("[%v] %v", issue.Summary, issue.Message)
-			ccError.Fingerprint = getMD5Hash(issue.Range.Filename + issue.Message)
-			ccError.Location = toCodeClimatePosition(issue.Range)
+			Type:        "issue",
+			CheckName:   "tflint_application_error",
+			Categories:  []string{"Bug Risk"},
+			Content:     CodeClimateContent{Body: issue.Message},
+			Description: issue.Summary,
+			Fingerprint: getMD5Hash(issue.Range.Filename + issue.Summary + issue.Message),
+			Location:    toCodeClimatePosition(issue.Range),
+			Severity:    toCodeClimateSeverity(issue.Severity),
 		}
 
 		log.Printf("[formatter.go/CodeClimatePrint] Converting tflint application error\nTF:%+v\nCC:%+v\n", issue, ccError)
