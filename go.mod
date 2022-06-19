@@ -4,7 +4,7 @@ go 1.18
 
 require github.com/terraform-linters/tflint v0.37.0
 
-require github.com/oriser/regroup v0.0.0-20210730155327-fca8d7531263 // indirect
+require github.com/oriser/regroup v0.0.0-20210730155327-fca8d7531263
 
 require (
 	cloud.google.com/go v0.75.0 // indirect
