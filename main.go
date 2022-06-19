@@ -39,42 +39,11 @@ func getConfiguration() (codeClimateConfiguration *codeclimate.CodeClimateConfig
 	log.Printf("[main.go/getConfigurationArgs] Unmarshaled TFLint configuration: %v\n", tflintConfigurationRoot)
 
 	return codeClimateConfigurationRoot, tflintConfigurationRoot
-	//return tflint.ToCLIArguments(tflintConfigurationRoot.Config)
 }
 
-func main() {
-	// Extract configuration from config.json file
-	log.Println("[main.go/main] Extracting configuration...")
-	codeClimateConfiguration, tflintConfiguration := getConfiguration()
-
-	// Load TFLint specific configuration
-	args := []string{"tflint", "--force", "--format=json"}
-	args = append(args, tflint.ToCLIArguments(tflintConfiguration.Config)...)
-
-	// Handle exclude patterns by creating a list of files/dirs to be analyzed
-	// The final list will contain all the include_paths that do not match any of the expressions in exclude_patterns
-	// We first must convert the ExcludePattern into a bash-like glob pattern (e.g. {*.tf, *.something})
-	globPattern := fmt.Sprintf("{%v}", strings.Join(codeClimateConfiguration.ExcludePatterns[:], ","))
-	log.Printf("[main.go/main] Generated glob pattern from ExcludePatterns: %v\n", globPattern)
-
-	g := glob.MustCompile(globPattern)
-	for _, file := range codeClimateConfiguration.IncludePaths {
-		if g.Match(file) {
-			log.Printf("[main.go/main] File is matching, excluding it from scanning: %v\n", file)
-		} else {
-			log.Printf("[main.go/main] File is NOT matching, adding it to args: %v\n", file)
-			args = append(args, file)
-		}
-	}
-	log.Printf("[main.go/main] Extracted TFLint configuration: %v\n", args)
-
+func run(args []string, path string) {
 	// Redirect TFLint's output to an internal stream
 	r, w, _ := os.Pipe()
-
-	// Run TFLint providing some basic options
-	log.Printf("[main.go/main] Running TFLint with args: %v", args)
-	cli := cmd.NewCLI(w, os.Stderr)
-	cli.Run(args)
 
 	// Read back from the internal stram
 	// See: https://stackoverflow.com/a/10476304
@@ -84,6 +53,12 @@ func main() {
 		io.Copy(&buf, r)
 		outC <- buf.String()
 	}()
+
+	// Run TFLint providing some basic options
+	tmpArgs := append(args, path)
+	log.Printf("[main.go/main] Running TFLint with args: %v", tmpArgs)
+	cli := cmd.NewCLI(w, os.Stderr)
+	cli.Run(tmpArgs)
 
 	// Close the stream and get the output
 	w.Close()
@@ -100,4 +75,35 @@ func main() {
 	// Finally, we use TFLint's JSONOutput format to provide results in CodeClimate's one
 	codeclimate.CodeClimatePrint(*result)
 	log.Println("[main.go/main] Completed converting TFLint output to CodeClimate format")
+}
+
+func main() {
+	// Extract configuration from config.json file
+	log.Println("[main.go/main] Extracting configuration...")
+	codeClimateConfiguration, tflintConfiguration := getConfiguration()
+
+	// Load TFLint specific configuration
+	args := []string{"tflint", "--force", "--format=json"}
+	args = append(args, tflint.ToCLIArguments(tflintConfiguration.Config)...)
+	log.Printf("[main.go/main] Extracted TFLint configuration: %v\n", args)
+
+	// Handle exclude patterns by creating a list of files/dirs to be analyzed
+	// The final list will contain all the include_paths that do not match any of the expressions in exclude_patterns
+	// We first must convert the ExcludePattern into a bash-like glob pattern (e.g. {*.tf, *.something})
+	globPattern := fmt.Sprintf("{%v}", strings.Join(codeClimateConfiguration.ExcludePatterns[:], ","))
+	log.Printf("[main.go/main] Generated glob pattern from ExcludePatterns: %v\n", globPattern)
+
+	g := glob.MustCompile(globPattern)
+	for _, file := range codeClimateConfiguration.IncludePaths {
+		if g.Match(file) {
+			log.Printf("[main.go/main] File is matching, excluding it from scanning: %v\n", file)
+		} else {
+			log.Printf("[main.go/main] File is NOT matching, adding it to args: %v\n", file)
+
+			// Running in this loop is needed as TFLint only supports one folder per execution.
+			// This means that including a folder and other folders/files in our agrs will prevent TFLint from running.
+			// For this reason we actually process only one included path per single execution.
+			run(args, file)
+		}
+	}
 }
