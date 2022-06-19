@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/oriser/regroup"
 	"github.com/terraform-linters/tflint/formatter"
 )
 
@@ -104,6 +105,9 @@ func printIssueJson(issue CodeClimateIssue) {
 	fmt.Printf(string(out) + "\x00")
 }
 
+// Pattern used to match invalid Terraform file error in tflint
+const invalidTerrafomFilePattern = "\x60(?P<filename>.*)\x60: File is not a target of Terraform"
+
 func CodeClimatePrint(issues formatter.JSONOutput) {
 	for _, issue := range issues.Issues {
 		ccIssue := CodeClimateIssue{
@@ -127,7 +131,37 @@ func CodeClimatePrint(issues formatter.JSONOutput) {
 		printIssueJson(ccIssue)
 	}
 
+	// Define the regex needed to capture tflint special error cases
+	invalidTerrafomFileRegex := regroup.MustCompile(invalidTerrafomFilePattern)
+
 	for _, issue := range issues.Errors {
+		// Some errors in tflint do not include a location, so we must deal with them with special cases
+		if issue.Range == nil {
+			// First known case is when a target file is not a valid Terraform file
+			match, err := invalidTerrafomFileRegex.Groups(issue.Message)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			// We found that special case which includes the file name in the message
+			issue.Range = &formatter.JSONRange{
+				Filename: match["filename"],
+				Start: formatter.JSONPos{
+					// Lines are 1-based in Code Climate so we can't default to 0
+					Line:   1,
+					Column: 1,
+				},
+				End: formatter.JSONPos{
+					// Lines are 1-based in Code Climate so we can't default to 0
+					Line:   1,
+					Column: 1,
+				},
+			}
+			issue.Summary = issue.Message
+		}
+
+		log.Printf("[formatter.go/CodeClimatePrint] Converting tflint application error\nTF:%+v\n", issue)
+
 		ccError := CodeClimateIssue{
 			Type:        "issue",
 			CheckName:   "tflint_application_error",
