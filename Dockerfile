@@ -1,9 +1,9 @@
 # The image must be built starting from a specific TFLint version.
 # ARGs are cleared after each FROM so we need to declare this here.
-ARG TFLINT_VERSION
+ARG TFLINT_VERSION="v0.39.3"
 
 # Use golang base image just to build our wrapper
-FROM golang:1.18-alpine as builder
+FROM golang:1.19-alpine as builder
 
 # Copy all the files, download dependneices and build
 WORKDIR /usr/src/app
