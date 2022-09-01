@@ -11,6 +11,7 @@ require (
 	cloud.google.com/go/iam v0.3.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.1.0 // indirect
 	github.com/hashicorp/terraform-registry-address v0.0.0-20220623143253-7d51757b572c // indirect
+	golang.org/x/exp v0.0.0-20220827204233-334a2380cb91 // indirect
 )
 
 require (

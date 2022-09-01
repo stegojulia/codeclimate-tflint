@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/ST-Apps/codeclimate-tflint/codeclimate"
@@ -14,6 +15,7 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/terraform-linters/tflint/cmd"
 	"github.com/terraform-linters/tflint/formatter"
+	"golang.org/x/exp/slices"
 )
 
 func getConfiguration() (codeClimateConfiguration *codeclimate.CodeClimateConfiguration, tflintConfiguration *tflint.TFLintRoot) {
@@ -42,6 +44,15 @@ func getConfiguration() (codeClimateConfiguration *codeclimate.CodeClimateConfig
 }
 
 func run(args []string, path string) {
+	// Check if the provided path has an allowed extensions, if not we must return
+	// This check is valid for files only, directories are always allowed
+	allowedExtensions := []string{".tf", ".tfvars"}
+	fileExt := filepath.Ext(path)
+	if !slices.Contains(allowedExtensions, fileExt) {
+		log.Printf("[main.go/main] Skipping TFLint for file %v because extension %v is not allowed", path, fileExt)
+		return
+	}
+
 	// Redirect TFLint's output to an internal stream
 	r, w, _ := os.Pipe()
 
@@ -96,9 +107,9 @@ func main() {
 	g := glob.MustCompile(globPattern)
 	for _, file := range codeClimateConfiguration.IncludePaths {
 		if g.Match(file) {
-			log.Printf("[main.go/main] File is matching, excluding it from scanning: %v\n", file)
+			log.Printf("[main.go/main] File is matching exclude_patterns, excluding it from scanning: %v\n", file)
 		} else {
-			log.Printf("[main.go/main] File is NOT matching, adding it to args: %v\n", file)
+			log.Printf("[main.go/main] File is NOT matching exclude_patterns, adding it to args: %v\n", file)
 
 			// Running in this loop is needed as TFLint only supports one folder per execution.
 			// This means that including a folder and other folders/files in our agrs will prevent TFLint from running.
