@@ -43,12 +43,23 @@ func getConfiguration() (codeClimateConfiguration *codeclimate.CodeClimateConfig
 	return codeClimateConfigurationRoot, tflintConfigurationRoot
 }
 
+func IsDirectory(path string) (bool, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+	return fileInfo.IsDir(), err
+}
+
 func run(args []string, path string) {
 	// Check if the provided path has an allowed extensions, if not we must return
 	// This check is valid for files only, directories are always allowed
 	allowedExtensions := []string{".tf", ".tfvars"}
 	fileExt := filepath.Ext(path)
-	if !slices.Contains(allowedExtensions, fileExt) {
+	IsDirectory, _ := IsDirectory(path)
+	if IsDirectory {
+		log.Printf("[main.go/main] Skipping extensions check because %v is a directory", path)
+	} else if !slices.Contains(allowedExtensions, fileExt) {
 		log.Printf("[main.go/main] Skipping TFLint for file %v because extension %v is not allowed", path, fileExt)
 		return
 	}
