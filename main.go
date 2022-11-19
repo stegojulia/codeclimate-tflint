@@ -104,8 +104,15 @@ func main() {
 	log.Println("[main.go/main] Extracting configuration...")
 	codeClimateConfiguration, tflintConfiguration := getConfiguration()
 
+	// Before starting we need to execute tflint --init to install any plugin
+	log.Println("[main.go/main] Installing tflint plugins (if any)...")
+	args := []string{"tflint", "--init"}
+	args = append(args, tflint.ToCLIArguments(tflintConfiguration.Config)...)
+	cli := cmd.NewCLI(os.Stdout, os.Stderr)
+	cli.Run(args)
+
 	// Load TFLint specific configuration
-	args := []string{"tflint", "--force", "--format=json"}
+	args = []string{"tflint", "--force", "--format=json"}
 	args = append(args, tflint.ToCLIArguments(tflintConfiguration.Config)...)
 	log.Printf("[main.go/main] Extracted TFLint configuration: %v\n", args)
 
