@@ -6,6 +6,8 @@
 
 TFLint is a pluggable [Terraform](https://www.terraform.io/) Linter.
 
+> This engine is based on TFLint v0.43.0
+
 ### Installation
 
 1. If you haven't already, [install the Code Climate CLI](https://github.com/codeclimate/codeclimate).

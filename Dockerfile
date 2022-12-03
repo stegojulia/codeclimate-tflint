@@ -1,6 +1,6 @@
 # The image must be built starting from a specific TFLint version.
 # ARGs are cleared after each FROM so we need to declare this here.
-ARG TFLINT_VERSION="v0.39.3"
+ARG TFLINT_VERSION="v0.43.0"
 
 # Use golang base image just to build our wrapper
 FROM golang:1.19-alpine as builder
@@ -36,7 +36,9 @@ RUN apk add --no-cache subversion
 WORKDIR /tflint-rules
 
 # We don't want any subpath to be created so we --force to download in the current WORKDIR
-RUN svn export https://github.com/terraform-linters/tflint/tags/${TFLINT_VERSION}/docs/rules ./ --force
+# Rules have been moved to another project with v0.40.0 and they do not follow this URL convention anymore
+# RUN svn export https://github.com/terraform-linters/tflint/tags/${TFLINT_VERSION}/docs/rules ./ --force
+RUN svn export https://github.com/terraform-linters/tflint-ruleset-terraform/trunk/docs/rules ./ --force
 
 # Svn is not needed anymore so we can delete it
 RUN apk del subversion
