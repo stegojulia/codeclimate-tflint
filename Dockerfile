@@ -1,6 +1,6 @@
 # The image must be built starting from a specific TFLint version.
 # ARGs are cleared after each FROM so we need to declare this here.
-ARG TFLINT_VERSION="v0.43.0"
+ARG TFLINT_VERSION="v0.44.1"
 
 # Use golang base image just to build our wrapper
 FROM golang:1.19-alpine as builder
